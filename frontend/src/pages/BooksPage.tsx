@@ -1,6 +1,6 @@
   import { useEffect, useState } from 'react';
 
-    // Interface identical to class Book
+    // Interface identical to information in database 'book'
     interface Book {
         id: number;
         title: string;
@@ -9,7 +9,7 @@
     }
 
     function BooksPage() {
-        // books uses interface 'Book' which is identical to class 'Book'
+        // books uses interface 'Book'
         const [books, setBooks] = useState<Book[]>([]);
 
         // Function to request all data from /books
@@ -17,9 +17,9 @@
             // 'await' pauses function and waits for promise
             // 'fetch' requests data from URL and returns a promise
             const response = await fetch("http://localhost:3000/books");
-            // 'data' contains JSON data returned by the API, including information of the objects from class 'Book' like 'id' or 'title'
+            // 'data' contains JSON data returned by the API, including information of the elements from database 'book' like 'id' or 'title'
             const data = await response.json();
-            setBooks(data.books);
+            setBooks(data);
         }
 
         useEffect(() => {
