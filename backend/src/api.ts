@@ -26,7 +26,7 @@ router.post("/books", (req, res) => {
         SELECT * FROM books;
     `)
 
-    res.json(all_books.all())
+    res.json(all_books.all());
 });
 
 // Get Book with the ID after /books/*
@@ -35,7 +35,7 @@ router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) 
         SELECT * FROM books
         WHERE id = ?;
     `)
-
+    // Book with book ID from request parameters
     const book = current_book.get(Number(req.params.book_id))
 
     if(book == undefined) {
@@ -44,5 +44,22 @@ router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) 
         res.json(book);
     }
 })
+
+// Delete Book
+router.delete("/books/:book_id", (req, res) => {
+    const id = req.params.book_id;
+    const statement = db.prepare(`
+        DELETE FROM books
+        WHERE id = ?;    
+    `)
+    
+    statement.run(id)
+
+    const all_books = db.prepare(`
+        SELECT * FROM books;
+    `)
+    res.json(all_books.all());
+    
+});
 
 export default router;
