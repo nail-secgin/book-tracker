@@ -7,11 +7,13 @@ function AddBookPage() {
     const [title, setTitle] = useState("");
     const [year, setYear] = useState("");
     const [author, setAuthor] = useState("");
+    const [error, setError] = useState("");
     
     const navigate = useNavigate();
 
     return(
         <>
+            {error && <p>{error}</p>}
 
             <h1>Add book:</h1>
             <form onSubmit={async(e) => {
@@ -23,13 +25,19 @@ function AddBookPage() {
                     author: author
                 };
 
-                await fetch("http://localhost:3000/books", {
+                const response = await fetch("http://localhost:3000/books", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify(new_book)
                 });
+
+                if(!response.ok) {
+                    const error_info = await response.text();
+                    setError(error_info);
+                    return;
+                }
 
                 navigate("/books")
             }}>
