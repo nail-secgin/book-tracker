@@ -14,10 +14,3 @@ export class Book {
 }
 
 export const books: Book[] = [];
-
-// Test
-const new_book_1 = new Book(0, "test", 0, "test");
-const new_book_2 = new Book(1, "test", 1, "test");
-
-books.push(new_book_1);
-books.push(new_book_2);
