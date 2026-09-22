@@ -17,7 +17,7 @@ router.get("/books", (req, res) => {
 router.post("/books", (req, res) => {
     const new_book = req.body;
 
-    // Error handling
+    // Error handling for invalid input data
     if(!new_book.title){
         res.status(400).send("Title invalid")
         return;
@@ -36,14 +36,20 @@ router.post("/books", (req, res) => {
         return;
     }
 
-
-    // Insert new data into database
-    const statement = db.prepare(`
-        INSERT INTO books (id, title, year, author)
-        VALUES (?, ?, ?, ?)
-    `);
-    statement.run(new_book.id, new_book.title, new_book.year, new_book.author);
-    
+    try {
+        // Insert new book into database
+        const statement = db.prepare(`
+            INSERT INTO books (id, title, year, author)
+            VALUES (?, ?, ?, ?)
+        `);
+        statement.run(new_book.id, new_book.title, new_book.year, new_book.author);
+    } catch (error) {
+        if (error instanceof Error) {
+            // ID conflict
+            res.status(409).send("ID already taken")
+            return;
+        }
+    }
 
     // Send entire database data to /books
     const all_books = db.prepare(`
@@ -61,12 +67,13 @@ router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) 
         WHERE id = ?;
     `)
     
-
     // Book with book ID from request parameters
     const book = current_book.get(Number(req.params.book_id))
-
+    
+    // Error handling
     if(book == undefined) {
         res.status(404).send("Book not found")
+        return;
     } else {
         res.json(book);
     }

@@ -24,22 +24,27 @@ function AddBookPage() {
                     year: Number(year),
                     author: author
                 };
+                try {
+                    const response = await fetch("http://localhost:3000/books", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(new_book)
+                    });
 
-                const response = await fetch("http://localhost:3000/books", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(new_book)
-                });
+                    if(!response.ok) {
+                        const error_info = await response.text();
+                        setError(error_info);
+                        return;
+                    }
 
-                if(!response.ok) {
-                    const error_info = await response.text();
-                    setError(error_info);
-                    return;
+                    navigate("/books")
+                } catch(error) {
+                    if (error instanceof Error) {
+                        setError(error.message)
+                    }
                 }
-
-                navigate("/books")
             }}>
                 <label> Book ID </label>
                 <input 

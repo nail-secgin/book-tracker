@@ -1,12 +1,7 @@
 import { useParams, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
-
-interface Book {
-        id: number;
-        title: string;
-        year: number;
-        author: string;
-    }
+import { type Book }from "../types/Book.js";
+import BookCard from '../components/BookCard';
 
 function BookDetailPage() {
 
@@ -43,16 +38,7 @@ function BookDetailPage() {
             
             <h1>Book:</h1>
             {book &&(
-                <p key={book.id}>
-                    {book.title} <br/> 
-                    Book ID: {book.id} <br/>
-                    Book Year: {book.year} <br/>
-                    Book Author: {book.author} <br/>
-                    <br/>
-
-                    
-                </p>
-
+                <BookCard key={book.id} book={book}/>
 
             )}
 
@@ -82,23 +68,28 @@ function BookDetailPage() {
                     year: Number(year),
                     author: author
                 };
+                try {
+                    const response = await fetch("http://localhost:3000/books/" + params.book_id, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(updated_book)
+                        
+                    });
 
-                const response = await fetch("http://localhost:3000/books/" + params.book_id, {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(updated_book)
-                    
-                });
+                    if(!response.ok) {
+                        const error_info = await response.text();
+                        setError(error_info);
+                        return;
+                    }
 
-                if(!response.ok) {
-                    const error_info = await response.text();
-                    setError(error_info);
-                    return;
+                    loadBook();
+                } catch(error) {
+                    if (error instanceof Error) {
+                        setError(error.message)
+                    }
                 }
-
-                loadBook();
                 }}>
 
                 <label> Book title </label>

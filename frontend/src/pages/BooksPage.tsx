@@ -1,12 +1,7 @@
   import { useEffect, useState } from 'react';
-
-    // Interface identical to information in database 'book'
-    interface Book {
-        id: number;
-        title: string;
-        year: number;
-        author: string;
-    }
+  import BookCard from '../components/BookCard';
+  import {type Book} from "../types/Book.js";
+   
 
     function BooksPage() {
         // books uses interface 'Book'
@@ -30,13 +25,7 @@
             <>
                 <h1>Books</h1>
                 {books.map(book => (
-                    <p key={book.id}>
-                        {book.title} <br/> 
-                        Book ID: {book.id} <br/>
-                        Book Year: {book.year} <br/>
-                        Book Author: {book.author} <br/>
-                        <br/>
-                    </p>
+                    <BookCard key={book.id} book={book}/>
                 ))}
             </>
         );
