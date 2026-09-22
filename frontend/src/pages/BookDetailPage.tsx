@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { type Book }from "../types/Book.js";
 import BookCard from '../components/BookCard';
+import { deleteBook, getBook, editBook } from "../api/books_api.js"
 
 function BookDetailPage() {
 
@@ -17,16 +18,19 @@ function BookDetailPage() {
 
     // Load book with parameter ID
     async function loadBook() {
-        const response = await fetch("http://localhost:3000/books/" + params.book_id );
-        if (!response.ok) {
-            const error_info = await response.text();
-            setError(error_info);
-            return;
+        try {
+            const loaded_book = await getBook(Number(params.book_id));
+            setBook(loaded_book);
+            setTitle(loaded_book.title);
+            setYear(String(loaded_book.year));
+            setAuthor(loaded_book.author);
+            setError("");
+        } catch(error) {
+            if (error instanceof Error) {
+                setError(error.message)
+            }
         }
-        const data = await response.json();
-        setBook(data);
-        setError("");
-    }
+    } 
 
     useEffect(() => {
         loadBook();
@@ -38,86 +42,70 @@ function BookDetailPage() {
             
             <h1>Book:</h1>
             {book &&(
-                <BookCard key={book.id} book={book}/>
+                <div>
+                    <BookCard key={book.id} book={book}/>
 
+                    <form onSubmit={async(e) => {
+                        e.preventDefault();
+                        try {
+                            await deleteBook(book.id)
+                            navigate("/books")
+                        } catch(error) {
+                            if (error instanceof Error) {
+                                setError(error.message);
+                            }
+                        }
+                    }}>
+
+                    <input type="submit" value="delete_book"/>
+                    </form>
+                </div>
             )}
-
-            <form onSubmit={async(e) => {
-                e.preventDefault();
-                const response = await fetch("http://localhost:3000/books/" + params.book_id, {
-                        method: "DELETE",
-                });
-
-                if (!response.ok) {
-                    const error_info = await response.text();
-                    setError(error_info);
-                    return;
-                }
-                
-                navigate("/books")
-            }}>
-
-                <input type="submit" value="delete_book"/>
-            </form>
-            
             
             <form onSubmit={async(e) => {
                 e.preventDefault();
-                const updated_book = {
-                    title: title,
-                    year: Number(year),
-                    author: author
-                };
+
                 try {
-                    const response = await fetch("http://localhost:3000/books/" + params.book_id, {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(updated_book)
-                        
-                    });
-
-                    if(!response.ok) {
-                        const error_info = await response.text();
-                        setError(error_info);
-                        return;
-                    }
-
+                    await editBook(Number(params.book_id), title, Number(year), author)
                     loadBook();
                 } catch(error) {
                     if (error instanceof Error) {
                         setError(error.message)
                     }
                 }
-                }}>
+            }}>
+                
+                {book &&(
+                    <div>
+                        <label> Book title </label>
+                        <input 
+                        type="text" 
+                        id="book_title" 
+                        value={title}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>)  => setTitle(e.target.value)}
+                        /><br/>
 
-                <label> Book title </label>
-                <input 
-                type="text" 
-                id="book_title" 
-                value={title}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>)  => setTitle(e.target.value)}
-                /><br/>
+                        <label> Book publication year </label>
+                        <input 
+                        type="number" 
+                        id="book_year" 
+                        value={year}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>)  => setYear(e.target.value)}
+                        /><br/>
 
-                <label> Book publication year </label>
-                <input 
-                type="number" 
-                id="book_year" 
-                value={year}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>)  => setYear(e.target.value)}
-                /><br/>
-
-                <label> Book author </label>
-                <input 
-                type="text" 
-                id="book_author" 
-                value={author}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>)  => setAuthor(e.target.value)}
-                /><br/>
-            
-                <input type="submit" value="update_book"/>
+                        <label> Book author </label>
+                        <input 
+                        type="text" 
+                        id="book_author" 
+                        value={author}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>)  => setAuthor(e.target.value)}
+                        /><br/>
+                    
+                        <input type="submit" value="update_book"/>
+                    </div>
+                )}
             </form>
+           
         </>
     )
 }

@@ -138,9 +138,16 @@ router.put("/books/:book_id", (req, res) => {
             year = ?,
             author = ?
         WHERE id = ?;
-    `)
+    `)  
 
-    current_book.run(updated_data.title, Number(updated_data.year), updated_data.author, id)
+    
+    // Error handling
+    const statement_changes = current_book.run(updated_data.title, Number(updated_data.year), updated_data.author, id).changes
+
+    if(statement_changes === 0) {
+        res.status(404).send("Book for Book ID not available")
+        return;
+    }
     
     // Send updated book
     const updated_books = db.prepare(`

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { addBook } from "../api/books_api.js"
 
 function AddBookPage() {
 
@@ -18,27 +19,8 @@ function AddBookPage() {
             <h1>Add book:</h1>
             <form onSubmit={async(e) => {
                 e.preventDefault();
-                const new_book = {
-                    id: Number(id),
-                    title: title,
-                    year: Number(year),
-                    author: author
-                };
                 try {
-                    const response = await fetch("http://localhost:3000/books", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(new_book)
-                    });
-
-                    if(!response.ok) {
-                        const error_info = await response.text();
-                        setError(error_info);
-                        return;
-                    }
-
+                    addBook(Number(id), title, Number(year), author);
                     navigate("/books")
                 } catch(error) {
                     if (error instanceof Error) {
@@ -46,6 +28,7 @@ function AddBookPage() {
                     }
                 }
             }}>
+                
                 <label> Book ID </label>
                 <input 
                 type="number" 
