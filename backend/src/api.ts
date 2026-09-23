@@ -39,10 +39,10 @@ router.post("/books", (req, res) => {
     try {
         // Insert new book into database
         const statement = db.prepare(`
-            INSERT INTO books (id, title, year, author)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO books (title, year, author)
+            VALUES (?, ?, ?)
         `);
-        statement.run(new_book.id, new_book.title, new_book.year, new_book.author);
+        statement.run(new_book.title, new_book.year, new_book.author);
     } catch (error) {
         if (error instanceof Error) {
             // ID conflict

@@ -39,9 +39,8 @@ export async function deleteBook(book_id: number): Promise<void> {
 }
 
 // Add book with intended data
-export async function addBook(id: number, title: string, year: number, author: string): Promise<void> {
+export async function addBook(title: string, year: number, author: string): Promise<void> {
     const new_book = {
-        id: Number(id),
         title: title,
         year: Number(year),
         author: author

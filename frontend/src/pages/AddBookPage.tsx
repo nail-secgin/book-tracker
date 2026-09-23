@@ -22,7 +22,7 @@ function AddBookPage() {
             <form onSubmit={async(e) => {
                 e.preventDefault();
                 try {
-                    await addBook(Number(id), title, Number(year), author);
+                    await addBook(title, Number(year), author);
                     navigate("/books")
                 } catch(error) {
                     if (error instanceof Error) {
@@ -30,14 +30,6 @@ function AddBookPage() {
                     }
                 }
             }}>
-
-                <label> Book ID </label>
-                <input 
-                type="number" 
-                id="book_id" 
-                value={id}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>)  => setId(e.target.value)}
-                /><br/>
 
                 <label> Book title </label>
                 <input 
