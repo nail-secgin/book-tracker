@@ -10,6 +10,7 @@ function AddBookPage() {
     const [author, setAuthor] = useState("");
     const [error, setError] = useState("");
     
+    
     const navigate = useNavigate();
 
     return(
@@ -17,10 +18,11 @@ function AddBookPage() {
             {error && <p>{error}</p>}
 
             <h1>Add book:</h1>
+
             <form onSubmit={async(e) => {
                 e.preventDefault();
                 try {
-                    addBook(Number(id), title, Number(year), author);
+                    await addBook(Number(id), title, Number(year), author);
                     navigate("/books")
                 } catch(error) {
                     if (error instanceof Error) {
@@ -28,7 +30,7 @@ function AddBookPage() {
                     }
                 }
             }}>
-                
+
                 <label> Book ID </label>
                 <input 
                 type="number" 

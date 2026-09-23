@@ -11,24 +11,29 @@ function BookDetailPage() {
     const [year, setYear] = useState("");
     const [author, setAuthor] = useState("");
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
     const params = useParams();
 
     const navigate = useNavigate();
 
+
     // Load book with parameter ID
     async function loadBook() {
         try {
+            setLoading(true);
+            setError("");
             const loaded_book = await getBook(Number(params.book_id));
             setBook(loaded_book);
             setTitle(loaded_book.title);
             setYear(String(loaded_book.year));
             setAuthor(loaded_book.author);
-            setError("");
         } catch(error) {
             if (error instanceof Error) {
                 setError(error.message)
             }
+        } finally {
+            setLoading(false);
         }
     } 
 
@@ -39,9 +44,9 @@ function BookDetailPage() {
     return(
         <>
             {error && <p>{error}</p>}
-            
+            {loading && <p>Loading</p>}
             <h1>Book:</h1>
-            {book &&(
+            {!loading && book &&(
                 <div>
                     <BookCard key={book.id} book={book}/>
 
@@ -67,7 +72,7 @@ function BookDetailPage() {
 
                 try {
                     await editBook(Number(params.book_id), title, Number(year), author)
-                    loadBook();
+                    await loadBook();
                 } catch(error) {
                     if (error instanceof Error) {
                         setError(error.message)
@@ -75,7 +80,7 @@ function BookDetailPage() {
                 }
             }}>
                 
-                {book &&(
+                {!loading && book &&(
                     <div>
                         <label> Book title </label>
                         <input 
