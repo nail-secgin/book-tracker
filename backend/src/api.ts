@@ -45,8 +45,8 @@ router.post("/books", (req, res) => {
         statement.run(new_book.title, new_book.year, new_book.author);
     } catch (error) {
         if (error instanceof Error) {
-            // ID conflict
-            res.status(409).send("ID already taken")
+            // 
+            res.status(409).send("Error")
             return;
         }
     }

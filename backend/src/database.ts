@@ -33,7 +33,10 @@ booktracker.exec(`
 
     CREATE TABLE IF NOT EXISTS author (
         id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL
+        external_id TEXT NOT NULL,
+        external_source TEXT NOT NULL,
+        name TEXT NOT NULL,
+        UNIQUE (external_id, external_source)
     );
 
     CREATE TABLE IF NOT EXISTS books (
@@ -41,7 +44,7 @@ booktracker.exec(`
         external_id TEXT NOT NULL,
         external_source TEXT NOT NULL,
         title TEXT NOT NULL,
-        year INTEGER NOT NULL,
+        year INTEGER,
         description TEXT,
         UNIQUE (external_id, external_source)
     );
