@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { type Request, type Response } from 'express';
 import db from "./database.js"
+import { getWorkData } from "./external_api.js";
+import { error } from "node:console";
 
 const router = Router();
 
@@ -14,35 +16,67 @@ router.get("/books", (req, res) => {
 })
 
 // Post new book to database
-router.post("/books", (req, res) => {
-    const new_book = req.body;
-
+router.post("/books", async (req, res) => {
+    const inputTitle = req.body.title
+    
     // Error handling for invalid input data
-    if(!new_book.title){
+    if(!inputTitle){
         res.status(400).send("Title invalid")
         return;
     }
 
-    if(
-        !Number.isInteger(new_book.year) || 
-        (new_book.year > 2050 || new_book.year < 1600)
-    ) {
-        res.status(400).send("Year invalid")
-        return;
-    }
-
-    if(!new_book.author){
-        res.status(400).send("Author invalid")
-        return;
-    }
-
+    const new_book = await getWorkData(inputTitle);
     try {
         // Insert new book into database
-        const statement = db.prepare(`
-            INSERT INTO books (title, year, author)
+        const statement_book = db.prepare(`
+            INSERT INTO books (external_id, external_source, title, year)
+            VALUES (?, ?, ?, ?)
+        `);
+        const book_run = statement_book.run(new_book.external_id, new_book.external_source, new_book.title, new_book.year);
+
+        const statement_author = db.prepare(`
+            INSERT OR IGNORE INTO author (external_id, external_source, name)
             VALUES (?, ?, ?)
         `);
-        statement.run(new_book.title, new_book.year, new_book.author);
+
+        const author_check = db.prepare(`
+            SELECT id FROM author
+            WHERE external_id = ?
+            AND external_source = ?
+        `);
+
+        let author_id: number;
+        const author_id_list:(typeof author_id)[] = [];
+
+        if (new_book.author && new_book.author_key) {
+            if(new_book.author.length === new_book.author_key.length) {
+                for (let i = 0; i < new_book.author.length; i++) {
+
+                    statement_author.run(new_book.author_key[i], new_book.external_source, new_book.author[i]);
+
+                    
+                    const author_result = author_check.get(new_book.author_key[i], new_book.external_source) as {id: number} | undefined;
+                    if(author_result) {
+                        author_id = author_result.id
+                    } else {
+                        throw("Author ID not found");
+                    }
+                    author_id_list.push(author_id);
+                }
+        } else {
+            throw("Insert failed because of conflicted author data");
+        }
+
+        
+    const statement_book_author = db.prepare(`
+        INSERT INTO book_author (book_id, author_id)
+        VALUES (?, ?)
+    `);
+    for (var i in author_id_list) {
+        statement_book_author.run(book_run.lastInsertRowid, author_id_list[i]);
+    }
+        
+    }
     } catch (error) {
         if (error instanceof Error) {
             // 
@@ -50,13 +84,13 @@ router.post("/books", (req, res) => {
             return;
         }
     }
-
-    // Send entire database data to /books
-    const all_books = db.prepare(`
-        SELECT * FROM books;
+    // Send added book to /books
+    const books = db.prepare(`
+        SELECT * FROM books
+        WHERE external_id = ?;
     `)
 
-    res.json(all_books.all());
+    res.json(books.get(new_book.external_id));
     
 });
 

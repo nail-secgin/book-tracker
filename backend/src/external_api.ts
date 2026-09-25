@@ -8,13 +8,14 @@ interface OpenLibraryResult {
 }
 
 // Interface identical to information in database 'book'
-interface Work {
+export interface Work {
     id: number;
     external_id: string;
     external_source: string;
     title: string;
     year?: number | undefined;
     author?: string[] | undefined;
+    author_key?: string [] | undefined;
 }
 
 // Interface for OpenLibrary work details
@@ -22,7 +23,7 @@ interface WorkDetails {
     key: string,
     description?: string,
     cover?: number[],
-    genre?: string[]
+    subjects?: string[]
 }
 
 interface AuthorDetails {
@@ -71,7 +72,7 @@ async function getWork(work_title: string):Promise<OpenLibraryResult> {
     return data;
 } 
 
-export async function workData(book_title: string) {
+export async function getWorkData(book_title: string):Promise<Work> {
     const data = await getWork(book_title);
 
     const book:Work = {
@@ -80,7 +81,8 @@ export async function workData(book_title: string) {
         external_source: "OpenLibrary",
         title: data.title,
         year: data.first_publish_year,
-        author: data.author_name
+        author: data.author_name,
+        author_key: data.author_key
     }
     return book;
 }
@@ -112,7 +114,7 @@ export async function getWorkDetails(work_key: string) {
         key: original_work_key,
         description: response_json.description?.value,
         cover: response_json.covers,
-        genre: response_json.subjects
+        subjects: response_json.subjects
     }
     
     return data;
