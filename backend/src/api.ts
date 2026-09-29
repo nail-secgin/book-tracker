@@ -2,7 +2,6 @@ import { Router } from "express";
 import { type Request, type Response } from 'express';
 import db from "./database.js"
 import { getWorkData } from "./external_api.js";
-import { error } from "node:console";
 
 const router = Router();
 
@@ -27,63 +26,72 @@ router.post("/books", async (req, res) => {
 
     const new_book = await getWorkData(inputTitle);
     try {
-        // Insert new book into database
-        const statement_book = db.prepare(`
-            INSERT INTO books (external_id, external_source, title, year)
-            VALUES (?, ?, ?, ?)
-        `);
-        const book_run = statement_book.run(new_book.external_id, new_book.external_source, new_book.title, new_book.year);
+        // SQL-Transaction
+        // If one SQL-operation fails, all of them within the function will be reverted
+        const transaction = db.transaction(() => {
+            // Insert new book into database
+            const statement_book = db.prepare(`
+                INSERT INTO books (external_id, external_source, title, year)
+                VALUES (?, ?, ?, ?)
+            `);
+            const book_run = statement_book.run(new_book.external_id, new_book.external_source, new_book.title, new_book.year);
+            
+            // Insert author(s) into database if not already done and get ID(s)
+            const statement_author = db.prepare(`
+                INSERT OR IGNORE INTO author (external_id, external_source, name)
+                VALUES (?, ?, ?)
+            `);
+            
+            const author_check = db.prepare(`
+                SELECT id FROM author
+                WHERE external_id = ?
+                AND external_source = ?
+            `);
 
-        const statement_author = db.prepare(`
-            INSERT OR IGNORE INTO author (external_id, external_source, name)
-            VALUES (?, ?, ?)
-        `);
+            let author_id: number;
+            const author_id_list:number[] = [];
 
-        const author_check = db.prepare(`
-            SELECT id FROM author
-            WHERE external_id = ?
-            AND external_source = ?
-        `);
+            // Error handling: Check if array with authors and array with keys are available and identical
+            if (new_book.author && new_book.author_key) {
+                if(new_book.author.length === new_book.author_key.length) {
+                    // Insert each author key and author into 'author' table
+                    for (let i = 0; i < new_book.author.length; i++) {
+                        statement_author.run(new_book.author_key[i], new_book.external_source, new_book.author[i]);
+                        const author_result = author_check.get(new_book.author_key[i], new_book.external_source) as {id: number} | undefined;
+                        // Error handling: Throw error if author not found
+                        if(author_result) {
+                            author_id = author_result.id
+                        } else {
+                            throw new Error("Author ID not found");
+                        }
 
-        let author_id: number;
-        const author_id_list:(typeof author_id)[] = [];
-
-        if (new_book.author && new_book.author_key) {
-            if(new_book.author.length === new_book.author_key.length) {
-                for (let i = 0; i < new_book.author.length; i++) {
-
-                    statement_author.run(new_book.author_key[i], new_book.external_source, new_book.author[i]);
-
-                    
-                    const author_result = author_check.get(new_book.author_key[i], new_book.external_source) as {id: number} | undefined;
-                    if(author_result) {
-                        author_id = author_result.id
-                    } else {
-                        throw("Author ID not found");
+                        author_id_list.push(author_id);
                     }
-                    author_id_list.push(author_id);
+                } else {
+                    throw new Error("Insert failed because of conflicted author data");
                 }
-        } else {
-            throw("Insert failed because of conflicted author data");
-        }
 
-        
-    const statement_book_author = db.prepare(`
-        INSERT INTO book_author (book_id, author_id)
-        VALUES (?, ?)
-    `);
-    for (var i in author_id_list) {
-        statement_book_author.run(book_run.lastInsertRowid, author_id_list[i]);
-    }
-        
-    }
+                // Insert each author into 'book_author' table
+                const statement_book_author = db.prepare(`
+                    INSERT INTO book_author (book_id, author_id)
+                    VALUES (?, ?)
+                `);
+
+                for (let author_id of author_id_list) {
+                    statement_book_author.run(book_run.lastInsertRowid, author_id);
+                }
+            }
+        });
+            
+        transaction();
+
     } catch (error) {
         if (error instanceof Error) {
-            // 
-            res.status(409).send("Error")
+            res.status(409).send(error.message)
             return;
         }
     }
+
     // Send added book to /books
     const books = db.prepare(`
         SELECT * FROM books
