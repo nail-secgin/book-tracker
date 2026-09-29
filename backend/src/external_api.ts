@@ -1,3 +1,5 @@
+import { BookNotFoundError, ExternalApiError} from "./errors.js";
+
 // Interface for results in OpenLibrary book-search under '[docs]'
 interface OpenLibraryResult {
     key: string,
@@ -7,7 +9,7 @@ interface OpenLibraryResult {
     author_key?: string[]
 }
 
-// Interface identical to information in database 'book'
+// Interface identical to information in database 'book' (Excluding author and author_key)
 export interface Work {
     id: number;
     external_id: string;
@@ -15,7 +17,7 @@ export interface Work {
     title: string;
     year?: number | undefined;
     author?: string[] | undefined;
-    author_key?: string [] | undefined;
+    author_key?: string[] | undefined;
 }
 
 // Interface for OpenLibrary work details
@@ -35,6 +37,7 @@ interface AuthorDetails {
     bio?: string
 }
 
+
 async function getWork(work_title: string):Promise<OpenLibraryResult> {
     work_title = encodeURIComponent(work_title)
 
@@ -48,18 +51,18 @@ async function getWork(work_title: string):Promise<OpenLibraryResult> {
         headers: headers
     };
 
+    
     const response = await fetch(url, options);
     
     if (!response.ok) {
-        const error_info = await response.text();
-        throw new Error(error_info);
+        throw new ExternalApiError();
     }
     
     const response_json = await response.json();
     const first_result = response_json.docs[0];
 
     if (!first_result) {
-        throw new Error("Book not found")
+        throw new BookNotFoundError();
     }
 
     const data: OpenLibraryResult = {
@@ -87,6 +90,7 @@ export async function getWorkData(book_title: string):Promise<Work> {
     return book;
 }
 
+
 export async function getWorkDetails(work_key: string) {
     const original_work_key = work_key;
     work_key = encodeURIComponent(work_key);
@@ -104,8 +108,7 @@ export async function getWorkDetails(work_key: string) {
     const response = await fetch(url, options);
     
     if (!response.ok) {
-        const error_info = await response.text();
-        throw new Error(error_info);
+        throw new ExternalApiError();
     }
     
     const response_json = await response.json();
@@ -119,6 +122,7 @@ export async function getWorkDetails(work_key: string) {
     
     return data;
 }
+
 
 export async function getAuthorDetails(author_key: string) {
     const original_author_key = author_key;
@@ -137,8 +141,7 @@ export async function getAuthorDetails(author_key: string) {
     const response = await fetch(url, options);
     
     if (!response.ok) {
-        const error_info = await response.text();
-        throw new Error(error_info);
+        throw new ExternalApiError();
     }
     
     const response_json = await response.json();

@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { type Request, type Response } from 'express';
 import db from "./database.js"
+import { SqliteError } from "better-sqlite3";
 import { getWorkData } from "./external_api.js";
+import { BookDeletionError, BookNotFoundError, ExternalApiError, InvalidAuthorDataError } from "./errors.js";
 
 const router = Router();
 
@@ -14,6 +16,7 @@ router.get("/books", (req, res) => {
     res.json(all_books.all())
 })
 
+
 // Post new book to database
 router.post("/books", async (req, res) => {
     const inputTitle = req.body.title
@@ -24,8 +27,8 @@ router.post("/books", async (req, res) => {
         return;
     }
 
-    const new_book = await getWorkData(inputTitle);
     try {
+        const new_book = await getWorkData(inputTitle);
         // SQL-Transaction
         // If one SQL-operation fails, all of them within the function will be reverted
         const transaction = db.transaction(() => {
@@ -35,7 +38,6 @@ router.post("/books", async (req, res) => {
                 VALUES (?, ?, ?, ?)
             `);
             const book_run = statement_book.run(new_book.external_id, new_book.external_source, new_book.title, new_book.year);
-            
             // Insert author(s) into database if not already done and get ID(s)
             const statement_author = db.prepare(`
                 INSERT OR IGNORE INTO author (external_id, external_source, name)
@@ -62,13 +64,13 @@ router.post("/books", async (req, res) => {
                         if(author_result) {
                             author_id = author_result.id
                         } else {
-                            throw new Error("Author ID not found");
+                            throw new InvalidAuthorDataError();
                         }
 
                         author_id_list.push(author_id);
                     }
                 } else {
-                    throw new Error("Insert failed because of conflicted author data");
+                    throw new InvalidAuthorDataError();
                 }
 
                 // Insert each author into 'book_author' table
@@ -85,22 +87,42 @@ router.post("/books", async (req, res) => {
             
         transaction();
 
+        // Send added book to /books
+        const books = db.prepare(`
+            SELECT * FROM books
+            WHERE external_id = ?;
+        `)
+        res.json(books.get(new_book.external_id));
+
     } catch (error) {
+        // Error handling
+        if(error instanceof SqliteError && error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+            res.status(409).send("Book already exists");
+            return;
+        }
+
+        if (error instanceof InvalidAuthorDataError) {
+            res.status(400).send(error.message)
+            return;
+        }
+
+        if (error instanceof BookNotFoundError) {
+            res.status(404).send(error.message)
+            return;
+        }
+
+        if (error instanceof ExternalApiError) {
+            res.status(502).send(error.message)
+            return;
+        }
+
         if (error instanceof Error) {
-            res.status(409).send(error.message)
+            res.status(500).send(error.message)
             return;
         }
     }
-
-    // Send added book to /books
-    const books = db.prepare(`
-        SELECT * FROM books
-        WHERE external_id = ?;
-    `)
-
-    res.json(books.get(new_book.external_id));
-    
 });
+
 
 // Get Book with the ID after /books/*
 router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) => { 
@@ -108,18 +130,26 @@ router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) 
         SELECT * FROM books
         WHERE id = ?;
     `)
-    
-    // Book with book ID from request parameters
-    const book = current_book.get(Number(req.params.book_id))
-    
-    // Error handling
-    if(book == undefined) {
-        res.status(404).send("Book not found")
-        return;
-    } else {
+
+    try {
+        // Book with book ID from request parameters
+        const book = current_book.get(Number(req.params.book_id))
+        
+        // Error handling
+        if(!book) {
+            throw new BookNotFoundError();
+        }
+
         res.json(book);
+
+    } catch(error) {
+        if (error instanceof BookNotFoundError) {
+            res.status(404).send(error.message)
+            return;
+        }
     }
 })
+
 
 // Delete Book
 router.delete("/books/:book_id", (req, res) => {
@@ -131,72 +161,26 @@ router.delete("/books/:book_id", (req, res) => {
         WHERE id = ?;    
     `)
     
-    // Error handling
-    const statement_changes = statement.run(id).changes
+    try {
+        // Error handling
+        const statement_changes = statement.run(id).changes
 
-    if(statement_changes === 0) {
-        res.status(400).send("Deletion unsuccessful")
-        return;
+        if(statement_changes === 0) {
+            throw new BookDeletionError();
+        }
+
+        // Send updated list
+        const all_books = db.prepare(`
+            SELECT * FROM books;
+        `)
+        res.json(all_books.all());
+
+    } catch(error) {
+        if (error instanceof BookDeletionError) {
+            res.status(404).send(error.message)
+            return;
+        }
     }
-
-
-    // Send updated list
-    const all_books = db.prepare(`
-        SELECT * FROM books;
-    `)
-    res.json(all_books.all());
-    
-});
-
-// Update Book
-router.put("/books/:book_id", (req, res) => {
-    const id = Number(req.params.book_id);
-    const updated_data = req.body;
-
-
-    // Error handling
-    if(!updated_data.title){
-        res.status(400).send("Title invalid")
-        return;
-    }
-
-    if(
-        !Number.isInteger(updated_data.year) || 
-        (updated_data.year > 2050 || updated_data.year < 1600)
-    ) {
-        res.status(400).send("Year invalid")
-        return;
-    }
-
-    if(!updated_data.author){
-        res.status(400).send("Author invalid")
-        return;
-    }
-
-    // Update edited book data
-    const current_book = db.prepare(`
-        UPDATE books
-        SET title = ?,
-            year = ?,
-            author = ?
-        WHERE id = ?;
-    `)  
-
-    
-    // Error handling
-    const statement_changes = current_book.run(updated_data.title, Number(updated_data.year), updated_data.author, id).changes
-
-    if(statement_changes === 0) {
-        res.status(404).send("Book for Book ID not available")
-        return;
-    }
-    
-    // Send updated book
-    const updated_books = db.prepare(`
-        SELECT * FROM books
-        WHERE id = ?;
-    `)
-    res.json(updated_books.get(id));
 });
 
 export default router;
