@@ -9,7 +9,7 @@ interface OpenLibraryResult {
     author_key?: string[]
 }
 
-// Interface identical to information in database 'book' (Excluding author and author_key)
+// Interface identical to information in database 'book' (+ author and author_key)
 export interface Work {
     id: number;
     external_id: string;
@@ -28,6 +28,7 @@ interface WorkDetails {
     subjects?: string[]
 }
 
+// Interface for Author Details
 interface AuthorDetails {
     external_id: string,
     external_source: string,
@@ -37,42 +38,52 @@ interface AuthorDetails {
     bio?: string
 }
 
-
-async function getWork(work_title: string):Promise<OpenLibraryResult> {
-    work_title = encodeURIComponent(work_title)
-
-    const url = "https://openlibrary.org/search.json?q=" + work_title;
-
+// External API Request
+async function requestExternalApi(url: string) {
     const headers = new Headers({
         "User-Agent": "BookTracker/1.0 (videy987@gmail.com)"
     });
+
     const options = {
         method: 'GET',
         headers: headers
     };
 
-    
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new ExternalApiError();
+        }
+        const response_json = await response.json()
+        return response_json
+    } catch(error) {
+        if (error instanceof ExternalApiError) {
+            throw error;
+        }
+
         throw new ExternalApiError();
     }
-    
-    const response_json = await response.json();
+}
+
+// Get information for a work from external API
+async function getWork(work_title: string):Promise<OpenLibraryResult> {
+    work_title = encodeURIComponent(work_title)
+
+    const response_json = await requestExternalApi("https://openlibrary.org/search.json?q=" + work_title)
     const first_result = response_json.docs[0];
 
-    if (!first_result) {
-        throw new BookNotFoundError();
-    }
+        if (!first_result) {
+            throw new BookNotFoundError();
+        }
 
-    const data: OpenLibraryResult = {
-        key: first_result.key,
-        title: first_result.title,
-        author_name: first_result.author_name,
-        first_publish_year: first_result.first_publish_year,
-        author_key: first_result.author_key
-    }
-    return data;
+        const data: OpenLibraryResult = {
+            key: first_result.key,
+            title: first_result.title,
+            author_name: first_result.author_name,
+            first_publish_year: first_result.first_publish_year,
+            author_key: first_result.author_key
+        }
+        return data;
 } 
 
 export async function getWorkData(book_title: string):Promise<Work> {
@@ -90,28 +101,12 @@ export async function getWorkData(book_title: string):Promise<Work> {
     return book;
 }
 
-
+// Get additional work details from external API
 export async function getWorkDetails(work_key: string) {
     const original_work_key = work_key;
     work_key = encodeURIComponent(work_key);
 
-    const url = "https://openlibrary.org/works/" + work_key + ".json";
-
-    const headers = new Headers({
-        "User-Agent": "BookTracker/1.0 (videy987@gmail.com)"
-    });
-    const options = {
-        method: 'GET',
-        headers: headers
-    };
-
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-        throw new ExternalApiError();
-    }
-    
-    const response_json = await response.json();
+    const response_json = await requestExternalApi("https://openlibrary.org/works/" + work_key + ".json");
 
     const data: WorkDetails = {
         key: original_work_key,
@@ -119,32 +114,16 @@ export async function getWorkDetails(work_key: string) {
         cover: response_json.covers,
         subjects: response_json.subjects
     }
-    
+        
     return data;
 }
 
-
+// Get author details with author ID from external API
 export async function getAuthorDetails(author_key: string) {
     const original_author_key = author_key;
     author_key = encodeURIComponent(author_key)
 
-    const url = "https://openlibrary.org/authors/" + author_key + ".json";
-
-    const headers = new Headers({
-        "User-Agent": "BookTracker/1.0 (videy987@gmail.com)"
-    });
-    const options = {
-        method: 'GET',
-        headers: headers
-    };
-
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-        throw new ExternalApiError();
-    }
-    
-    const response_json = await response.json();
+    const response_json = await requestExternalApi("https://openlibrary.org/authors/" + author_key + ".json")
 
     const data: AuthorDetails = {
         external_id: original_author_key,

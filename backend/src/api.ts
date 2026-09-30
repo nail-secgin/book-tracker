@@ -26,6 +26,7 @@ router.post("/books", async (req, res) => {
         res.status(400).send("Title invalid")
         return;
     }
+    let book_id;
 
     try {
         const new_book = await getWorkData(inputTitle);
@@ -38,6 +39,7 @@ router.post("/books", async (req, res) => {
                 VALUES (?, ?, ?, ?)
             `);
             const book_run = statement_book.run(new_book.external_id, new_book.external_source, new_book.title, new_book.year);
+            book_id = book_run.lastInsertRowid 
             // Insert author(s) into database if not already done and get ID(s)
             const statement_author = db.prepare(`
                 INSERT OR IGNORE INTO author (external_id, external_source, name)
@@ -80,8 +82,9 @@ router.post("/books", async (req, res) => {
                 `);
 
                 for (let author_id of author_id_list) {
-                    statement_book_author.run(book_run.lastInsertRowid, author_id);
+                    statement_book_author.run(book_id, author_id);
                 }
+                
             }
         });
             
@@ -90,9 +93,10 @@ router.post("/books", async (req, res) => {
         // Send added book to /books
         const books = db.prepare(`
             SELECT * FROM books
-            WHERE external_id = ?;
+            WHERE id = ?;
         `)
-        res.json(books.get(new_book.external_id));
+
+        res.json(books.get(book_id));
 
     } catch (error) {
         // Error handling

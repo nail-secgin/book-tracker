@@ -39,11 +39,9 @@ export async function deleteBook(book_id: number): Promise<void> {
 }
 
 // Add book with intended data
-export async function addBook(title: string, year: number, author: string): Promise<void> {
+export async function addBook(title: string): Promise<void> {
     const new_book = {
-        title: title,
-        year: Number(year),
-        author: author
+        title: title
     };
 
     const response = await fetch("http://localhost:3000/books", {
@@ -57,27 +55,5 @@ export async function addBook(title: string, year: number, author: string): Prom
     if(!response.ok) {
         const error_info = await response.text();
         throw new Error(error_info)
-    }
-}
-
-// Edit book with intended data
-export async function editBook(book_id: number, title: string, year: number, author: string): Promise<void> {
-    const updated_book = {
-        title: title,
-        year: Number(year),
-        author: author
-    };
-
-    const response = await fetch("http://localhost:3000/books/" + book_id, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(updated_book)
-    });
-
-    if(!response.ok) {
-        const error_info = await response.text();
-        throw new Error(error_info);
     }
 }
