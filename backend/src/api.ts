@@ -7,18 +7,64 @@ import { BookDeletionError, BookNotFoundError, ExternalApiError, InvalidAuthorDa
 
 const router = Router();
 
+interface BookData {
+    id: number;
+    external_id: string;
+    external_source: string;
+    title: string;
+    year: number | undefined;
+    description: string | undefined;
+};
+
+interface BookToFrontend {
+    id: number;
+    external_id: string;
+    external_source: string;
+    title: string;
+    year: number | undefined;
+    authors?: string[];
+    description: string | undefined;
+};
+
+interface AuthorData {
+    name: string
+};
+
 // Get books from database 'books.db'
 router.get("/books", (req, res) => {
     const all_books = db.prepare(`
         SELECT * FROM books;
     `);
+    
+    const book_authors = db.prepare(`
+        SELECT author.name FROM book_author
+        JOIN author ON author.id = book_author.author_id
+        WHERE book_author.book_id = ?
+    `);
 
-    res.json(all_books.all())
+    const all_books_result:BookToFrontend[] = []
+
+    for (const book of all_books.all() as BookData[]) {
+        const authors = book_authors.all(book.id) as AuthorData[]
+        all_books_result.push({
+            id: book.id,
+            external_id: book.external_id,
+            external_source: book.external_source,
+            title: book.title,
+            year: book.year,
+            authors: authors.map(author => author.name),
+            description: book.description
+        })
+    }
+
+    res.json(all_books_result)
 })
 
 
 // Post new book to database
 router.post("/books", async (req, res) => {
+    let book_id;
+
     const inputTitle = req.body.title
     
     // Error handling for invalid input data
@@ -26,7 +72,6 @@ router.post("/books", async (req, res) => {
         res.status(400).send("Title invalid")
         return;
     }
-    let book_id;
 
     try {
         const new_book = await getWorkData(inputTitle);
@@ -51,20 +96,20 @@ router.post("/books", async (req, res) => {
                 WHERE external_id = ?
                 AND external_source = ?
             `);
-
+            
             let author_id: number;
             const author_id_list:number[] = [];
 
             // Error handling: Check if array with authors and array with keys are available and identical
-            if (new_book.author && new_book.author_key) {
-                if(new_book.author.length === new_book.author_key.length) {
+            if (new_book.authors && new_book.author_keys) {
+                if(new_book.authors.length === new_book.author_keys.length) {
                     // Insert each author key and author into 'author' table
-                    for (let i = 0; i < new_book.author.length; i++) {
-                        statement_author.run(new_book.author_key[i], new_book.external_source, new_book.author[i]);
-                        const author_result = author_check.get(new_book.author_key[i], new_book.external_source) as {id: number} | undefined;
+                    for (let i = 0; i < new_book.authors.length; i++) {
+                        statement_author.run(new_book.author_keys[i], new_book.external_source, new_book.authors[i]);
+                        const author_result = author_check.get(new_book.author_keys[i], new_book.external_source) as {id: number} | undefined;
                         // Error handling: Throw error if author not found
                         if(author_result) {
-                            author_id = author_result.id
+                            author_id = author_result.id;
                         } else {
                             throw new InvalidAuthorDataError();
                         }
@@ -94,9 +139,28 @@ router.post("/books", async (req, res) => {
         const books = db.prepare(`
             SELECT * FROM books
             WHERE id = ?;
-        `)
+        `);
 
-        res.json(books.get(book_id));
+        // Get author_id from table 'book_author' and with that ID get author names from table 'author'
+        const book_authors = db.prepare(`
+            SELECT author.name FROM book_author
+            JOIN author ON author.id = book_author.author_id
+            WHERE book_author.book_id = ?
+        `);
+
+        const book_data:BookData = books.get(book_id) as BookData;
+
+        const book:BookToFrontend = {
+            id: book_data.id,
+            external_id: book_data.external_id,
+            external_source: book_data.external_source,
+            title: book_data.title,
+            year: book_data.year,
+            authors: book_authors.all(book_id) as string[],
+            description: book_data.description
+        };
+
+        res.json(book);
 
     } catch (error) {
         // Error handling
@@ -133,18 +197,35 @@ router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) 
     const current_book = db.prepare(`
         SELECT * FROM books
         WHERE id = ?;
-    `)
-
+    `);
+    // Get author_id from table 'book_author' and with that ID get author names from table 'author'
+    const current_book_authors = db.prepare(`
+        SELECT author.name FROM book_author
+        JOIN author ON author.id = book_author.author_id
+        WHERE book_author.book_id = ? 
+    `);
+    
     try {
         // Book with book ID from request parameters
-        const book = current_book.get(Number(req.params.book_id))
-        
+        const book:BookData = current_book.get(Number(req.params.book_id)) as BookData;
+
         // Error handling
         if(!book) {
             throw new BookNotFoundError();
         }
 
-        res.json(book);
+        const authors = current_book_authors.all(book.id) as AuthorData[]
+        const book_response:BookToFrontend = {
+            id: book.id,
+            external_id: book.external_id,
+            external_source: book.external_source,
+            title: book.title,
+            year: book.year,
+            authors: authors.map(author => author.name),
+            description: book.description
+        };
+
+        res.json(book_response);
 
     } catch(error) {
         if (error instanceof BookNotFoundError) {

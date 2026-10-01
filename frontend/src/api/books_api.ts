@@ -1,4 +1,4 @@
-import { type Book }from "../types/Book.js";
+import { type Book } from "../types/Book.js";
 
 
 // Request all books from /books

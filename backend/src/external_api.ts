@@ -4,9 +4,9 @@ import { BookNotFoundError, ExternalApiError} from "./errors.js";
 interface OpenLibraryResult {
     key: string,
     title: string,
-    author_name?: string[],
+    author_names?: string[],
     first_publish_year?: number,
-    author_key?: string[]
+    author_keys?: string[]
 }
 
 // Interface identical to information in database 'book' (+ author and author_key)
@@ -16,8 +16,8 @@ export interface Work {
     external_source: string;
     title: string;
     year?: number | undefined;
-    author?: string[] | undefined;
-    author_key?: string[] | undefined;
+    authors?: string[] | undefined;
+    author_keys?: string[] | undefined;
 }
 
 // Interface for OpenLibrary work details
@@ -79,9 +79,9 @@ async function getWork(work_title: string):Promise<OpenLibraryResult> {
         const data: OpenLibraryResult = {
             key: first_result.key,
             title: first_result.title,
-            author_name: first_result.author_name,
+            author_names: first_result.author_name,
             first_publish_year: first_result.first_publish_year,
-            author_key: first_result.author_key
+            author_keys: first_result.author_key
         }
         return data;
 } 
@@ -95,8 +95,8 @@ export async function getWorkData(book_title: string):Promise<Work> {
         external_source: "OpenLibrary",
         title: data.title,
         year: data.first_publish_year,
-        author: data.author_name,
-        author_key: data.author_key
+        authors: data.author_names,
+        author_keys: data.author_keys
     }
     return book;
 }

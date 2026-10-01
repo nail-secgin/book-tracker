@@ -11,7 +11,7 @@ function BookCard({ book }: BookCardProps) {
             {book.title} <br/> 
             Book ID: {book.id} <br/>
             Book Year: {book.year} <br/>
-            Book Author: {book.author} <br/>
+            Book Author: {book.authors.join(", ")} <br/>
             <br/>
         </p>
     );
