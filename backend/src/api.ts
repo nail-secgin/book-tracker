@@ -140,23 +140,23 @@ router.post("/books", async (req, res) => {
             SELECT * FROM books
             WHERE id = ?;
         `);
-
+        const book_data:BookData = books.get(book_id) as BookData;
+        
         // Get author_id from table 'book_author' and with that ID get author names from table 'author'
         const book_authors = db.prepare(`
             SELECT author.name FROM book_author
             JOIN author ON author.id = book_author.author_id
             WHERE book_author.book_id = ?
         `);
-
-        const book_data:BookData = books.get(book_id) as BookData;
-
+        const authors = book_authors.all(book_id) as AuthorData[]
+        
         const book:BookToFrontend = {
             id: book_data.id,
             external_id: book_data.external_id,
             external_source: book_data.external_source,
             title: book_data.title,
             year: book_data.year,
-            authors: book_authors.all(book_id) as string[],
+            authors: authors.map(author => author.name),
             description: book_data.description
         };
 

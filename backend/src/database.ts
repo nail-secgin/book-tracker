@@ -11,7 +11,7 @@ booktracker.exec(`
         username TEXT NOT NULL,
         email TEXT NOT NULL,
         password_hash TEXT NOT NULL,
-        display_name TEXT NOT NULL,
+        display_name TEXT,
         bio TEXT,
         UNIQUE (username),
         UNIQUE (email)
