@@ -5,6 +5,7 @@ import AddBookPage from './pages/AddBookPage.tsx';
 import BookDetailPage from './pages/BookDetailPage.tsx';
 import LoginPage from './pages/LoginPage.tsx';
 import RegisterPage from './pages/RegisterPage.tsx';
+import LibraryPage from './pages/LibraryPage.tsx'
 import { Link } from 'react-router';
 
 function App() {
@@ -17,6 +18,8 @@ function App() {
         <Link to="/login"> Login </Link>
         <Link to="/books"> Book List </Link>
         <Link to="/books/add"> Add Book </Link>
+        <Link to="/library"> Your Library </Link>
+        
       </nav>
       
         <Routes>
@@ -25,6 +28,7 @@ function App() {
           <Route path="/books" element={<BooksPage/>}/>
           <Route path="/books/add" element={<AddBookPage/>}/>
           <Route path="/books/:book_id" element={<BookDetailPage/>}/>
+          <Route path="/library" element={<LibraryPage/>}/>
         </Routes>
       </BrowserRouter>
 

@@ -7,6 +7,8 @@ import { BookDeletionError, BookNotFoundError, ExternalApiError, InvalidAuthorDa
 
 const router = Router();
 
+type ValidRating = null | 1 | 2 | 3 | 4 | 5;
+
 interface BookData {
     id: number;
     external_id: string;
@@ -326,14 +328,23 @@ router.post("/user/books", async (req, res) => {
     }
     const book_status = req.body.status;
 
+    // Invalid rating if rating is either not null, no number, not an integer or half decimal, or not between 1-5
+    if(req.body.rating !== null && (typeof req.body.rating !== "number" || !Number.isInteger(req.body.rating * 2) || req.body.rating < 1 || req.body.rating > 5 )) {
+        res.status(400).send("Invalid rating");
+        return;
+    }
+    // If rating is not null, double it for the database
+    const rating = req.body.rating === null
+        ? null
+        : req.body.rating * 2;
 
     try {
         const user_book = db.prepare(`
-            INSERT INTO user_book (user_id, book_id, status)
-            VALUES (?, ?, ?)
+            INSERT INTO user_book (user_id, book_id, status, rating)
+            VALUES (?, ?, ?, ?)
         `);
         
-        user_book.run(user_id, book_id, book_status);
+        user_book.run(user_id, book_id, book_status, rating);
         res.status(201).send("Insert successful");
     } catch(error) {
         // Error handling to-do
@@ -385,6 +396,10 @@ router.get("/user/books", (req, res) => {
     
     for (const user_book of user_book_details.all(req.session.userId) as AllUserBookData[]) {
         const authors = book_authors.all(user_book.book_id) as AuthorData[]
+        // If rating is not null, halve it for the frontend
+        const rating = user_book.rating === null
+            ? null
+            : user_book.rating / 2;
 
         all_user_books_result.push({
             userbook_id: user_book.userbook_id,
@@ -396,7 +411,7 @@ router.get("/user/books", (req, res) => {
             authors: authors.map(author => author.name),
             description: user_book.description,
             status: user_book.status,
-            rating: user_book.rating
+            rating: rating
         });
     }
 

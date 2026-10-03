@@ -1,4 +1,4 @@
-import { type Book } from "../types/Book.js";
+import { type Book, type UserBook } from "../types/Book.js";
 
 
 // Request all books from /books
@@ -56,4 +56,40 @@ export async function addBook(title: string): Promise<void> {
         const error_info = await response.text();
         throw new Error(error_info)
     }
+}
+
+export async function addUserBook(book_id: number, status: "want_to_read" | "reading" | "read" | "abandoned", rating: number | null): Promise<void> {
+    const new_user_book = {
+        book_id: book_id,
+        status: status,
+        rating: rating
+    }
+
+    const response = await fetch("http://localhost:3000/user/books", {
+        credentials: "include",
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(new_user_book)
+    });
+
+    if(!response.ok) {
+        const error_info = await response.text();
+        throw new Error(error_info)
+    }
+    
+}
+
+export async function getUserBooks(): Promise<UserBook[]> {
+    const response = await fetch("http://localhost:3000/user/books", {
+        credentials: "include"
+    });
+
+    if (!response.ok) {
+        const error_info = await response.text();
+        throw new Error(error_info);
+    }
+
+    return response.json();
 }

@@ -1,5 +1,5 @@
   import { useEffect, useState } from 'react';
-  import BookCard from '../components/BookCard';
+  import {BookCard} from '../components/BookCard';
   import {type Book} from "../types/Book.js";
   import { getBooks } from "../api/books_api.js"
   import { Link } from 'react-router';
