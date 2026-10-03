@@ -30,6 +30,31 @@ interface AuthorData {
     name: string
 };
 
+interface AllUserBookData {
+    userbook_id: number;
+    book_id: number;
+    external_id: string;
+    external_source: string;
+    title: string;
+    year: number | null;
+    description: string | null
+    status: string;
+    rating: number | null;
+}
+
+interface UserBookToFrontend {
+    userbook_id: number;
+    book_id: number;
+    external_id: string;
+    external_source: string;
+    title: string;
+    year: number | null;
+    authors: string[];
+    description: string | null
+    status: string;
+    rating: number | null;
+}
+
 // Get books from database 'books.db'
 router.get("/books", (req, res) => {
     const all_books = db.prepare(`
@@ -267,5 +292,118 @@ router.delete("/books/:book_id", (req, res) => {
         }
     }
 });
+
+// Add book to user library
+router.post("/user/books", async (req, res) => {
+    // Check if user is logged in
+    if (!req.session.userId) {
+        res.status(401).send("Not logged in");
+        return;
+    }
+    const user_id = req.session.userId;
+
+    // Error handling for invalid input data
+    if(!req.body.book_id || typeof req.body.book_id !== "number"){
+        res.status(400).send("Book ID invalid")
+        return;
+    }
+
+    const check_bookId = db.prepare(`
+        SELECT title FROM books
+        WHERE id = ?
+    `);
+
+    if (!check_bookId.get(req.body.book_id)) {
+        res.status(404).send("Book not found")
+        return;
+    }
+    const book_id = req.body.book_id;
+
+    const status_values = ["want_to_read", "reading", "read", "abandoned"];
+    if(!req.body.status || !status_values.includes(req.body.status) ){
+        res.status(400).send("Invalid status")
+        return;
+    }
+    const book_status = req.body.status;
+
+
+    try {
+        const user_book = db.prepare(`
+            INSERT INTO user_book (user_id, book_id, status)
+            VALUES (?, ?, ?)
+        `);
+        
+        user_book.run(user_id, book_id, book_status);
+        res.status(201).send("Insert successful");
+    } catch(error) {
+        // Error handling to-do
+        if(error instanceof SqliteError && error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+            res.status(409).send("Book already exists in user library");
+            return;
+        }
+
+        if (error instanceof Error) {
+            res.status(500).send(error.message)
+            return;
+        }
+    };
+});
+
+// Get all books in user library
+router.get("/user/books", (req, res) => {
+    // Check if user is logged in
+    if (!req.session.userId) {
+        res.status(401).send("Not logged in");
+        return;
+    }
+
+    // Join 'user_book table with 'book' table
+    const user_book_details = db.prepare(`
+        SELECT 
+            user_book.id AS userbook_id,
+            user_book.status,
+            user_book.rating,
+            books.id AS book_id,
+            books.external_id,
+            books.external_source,
+            books.title,
+            books.year,
+            books.description
+        FROM user_book
+        JOIN books on user_book.book_id = books.id
+        WHERE user_book.user_id = ?
+    `);
+    
+    // Get book authors
+    const book_authors = db.prepare(`
+        SELECT author.name FROM book_author
+        JOIN author ON author.id = book_author.author_id
+        WHERE book_author.book_id = ?
+    `);
+
+    const all_user_books_result:UserBookToFrontend[] = [];
+    
+    for (const user_book of user_book_details.all(req.session.userId) as AllUserBookData[]) {
+        const authors = book_authors.all(user_book.book_id) as AuthorData[]
+
+        all_user_books_result.push({
+            userbook_id: user_book.userbook_id,
+            book_id: user_book.book_id,
+            external_id: user_book.external_id,
+            external_source: user_book.external_source,
+            title: user_book.title,
+            year: user_book.year,
+            authors: authors.map(author => author.name),
+            description: user_book.description,
+            status: user_book.status,
+            rating: user_book.rating
+        });
+    }
+
+    res.json(all_user_books_result);
+
+});
+
+
 
 export default router;
