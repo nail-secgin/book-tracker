@@ -5,6 +5,13 @@ export class BookNotFoundError extends Error {
     }
 }
 
+export class UserBookNotFoundError extends Error {
+    constructor(message = "Book not found in user library") {
+        super(message)
+        this.name = "UserBookNotFoundError"
+    }
+}
+
 export class ExternalApiError extends Error {
     constructor(message = "External API Response invalid") {
         super(message)
@@ -21,6 +28,13 @@ export class InvalidAuthorDataError extends Error {
 
 export class BookDeletionError extends Error {
     constructor(message = "Book deletion failed") {
+        super(message)
+        this.name = "BookDeletionError"
+    }
+}
+
+export class UserBookDeletionError extends Error {
+    constructor(message = "User Book deletion failed") {
         super(message)
         this.name = "BookDeletionError"
     }

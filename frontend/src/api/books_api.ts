@@ -1,6 +1,8 @@
 import { type Book, type UserBook } from "../types/Book.js";
 
 
+// CRUD books
+
 // Request all books from /books
 export async function getBooks(): Promise<Book[]> {
 
@@ -58,6 +60,9 @@ export async function addBook(title: string): Promise<void> {
     }
 }
 
+// CRUD user books
+
+// Add user book
 export async function addUserBook(book_id: number, status: "want_to_read" | "reading" | "read" | "abandoned", rating: number | null): Promise<void> {
     const new_user_book = {
         book_id: book_id,
@@ -81,6 +86,7 @@ export async function addUserBook(book_id: number, status: "want_to_read" | "rea
     
 }
 
+// Request all user books
 export async function getUserBooks(): Promise<UserBook[]> {
     const response = await fetch("http://localhost:3000/user/books", {
         credentials: "include"
@@ -92,4 +98,53 @@ export async function getUserBooks(): Promise<UserBook[]> {
     }
 
     return response.json();
+}
+
+// Request user book with certain ID
+export async function getUserBook(userbook_id: number):Promise<UserBook> {
+    const response = await fetch("http://localhost:3000/user/books/" + userbook_id, {
+        credentials: "include"
+    });
+
+    if (!response.ok) {
+        const error_info = await response.text();
+        throw new Error(error_info);
+    }
+
+    return response.json();
+}
+
+// Delete user book with certain ID
+export async function deleteUserBook(userbook_id: number): Promise<void> {
+    const response = await fetch("http://localhost:3000/user/books/" + userbook_id, {
+        credentials: "include",
+        method: "DELETE"
+    });
+
+    if (!response.ok) {
+        const error_info = await response.text();
+        throw new Error(error_info);
+    }
+}
+
+// Update user book with certain ID
+export async function updateUserBook(userbook_id: number, status: "want_to_read" | "reading" | "read" | "abandoned", rating: number | null): Promise<void> {
+    const updated_user_book = {
+        status: status,
+        rating: rating
+    }
+
+    const response = await fetch("http://localhost:3000/user/books/" + userbook_id, {
+        credentials: "include",
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(updated_user_book)
+    });
+
+    if(!response.ok) {
+        const error_info = await response.text();
+        throw new Error(error_info)
+    }
 }

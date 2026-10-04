@@ -3,7 +3,7 @@ import { type Request, type Response } from 'express';
 import db from "./database.js"
 import { SqliteError } from "better-sqlite3";
 import { getWorkData } from "./external_api.js";
-import { BookDeletionError, BookNotFoundError, ExternalApiError, InvalidAuthorDataError } from "./errors.js";
+import { UserBookNotFoundError, BookDeletionError, BookNotFoundError, ExternalApiError, InvalidAuthorDataError, UserBookDeletionError } from "./errors.js";
 
 const router = Router();
 
@@ -56,6 +56,7 @@ interface UserBookToFrontend {
     status: string;
     rating: number | null;
 }
+// CRUD for 'books'
 
 // Get books from database 'books.db'
 router.get("/books", (req, res) => {
@@ -86,7 +87,6 @@ router.get("/books", (req, res) => {
 
     res.json(all_books_result)
 })
-
 
 // Post new book to database
 router.post("/books", async (req, res) => {
@@ -218,7 +218,6 @@ router.post("/books", async (req, res) => {
     }
 });
 
-
 // Get Book with the ID after /books/*
 router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) => { 
     const current_book = db.prepare(`
@@ -262,7 +261,6 @@ router.get("/books/:book_id", (req: Request<{ book_id: string}>, res: Response) 
     }
 })
 
-
 // Delete Book
 router.delete("/books/:book_id", (req, res) => {
     const id = Number(req.params.book_id);
@@ -294,6 +292,9 @@ router.delete("/books/:book_id", (req, res) => {
         }
     }
 });
+
+
+// CRUD for 'user_book'
 
 // Add book to user library
 router.post("/user/books", async (req, res) => {
@@ -419,6 +420,159 @@ router.get("/user/books", (req, res) => {
 
 });
 
+// Get book from user library with ID from parameter /user/books/* 
+router.get("/user/books/:userbook_id", (req: Request<{ userbook_id: string}>, res: Response) => {
+    // Check if user is logged in
+    if (!req.session.userId) {
+        res.status(401).send("Not logged in");
+        return;
+    }
+    const user_id = req.session.userId;
 
+    // Join 'user_book table with 'book' table
+    const current_user_book_details = db.prepare(`
+        SELECT 
+            user_book.id AS userbook_id,
+            user_book.status,
+            user_book.rating,
+            books.id AS book_id,
+            books.external_id,
+            books.external_source,
+            books.title,
+            books.year,
+            books.description
+        FROM user_book
+        JOIN books on user_book.book_id = books.id
+        WHERE user_book.user_id = ?
+        AND user_book.id = ?
+    `);
+    
+    // Get book authors
+    const current_book_authors = db.prepare(`
+        SELECT author.name FROM book_author
+        JOIN author ON author.id = book_author.author_id
+        WHERE book_author.book_id = ?
+    `);
+
+    try {
+        const user_book = current_user_book_details.get(user_id, req.params.userbook_id) as AllUserBookData;
+        if (!user_book) {
+            throw new UserBookNotFoundError();
+        }
+        const authors = current_book_authors.all(user_book.book_id) as AuthorData[]
+
+        const rating = user_book.rating === null
+            ? null
+            : user_book.rating / 2;
+
+        const user_book_response:UserBookToFrontend = {
+            userbook_id: user_book.userbook_id,
+            book_id: user_book.book_id,
+            external_id: user_book.external_id,
+            external_source: user_book.external_source,
+            title: user_book.title,
+            year: user_book.year,
+            authors: authors.map(author => author.name),
+            description: user_book.description,
+            status: user_book.status,
+            rating: rating
+        }
+
+        res.json(user_book_response);
+    } catch(error) {
+        if (error instanceof UserBookNotFoundError) {
+            res.status(404).send(error.message)
+            return;
+        }
+
+        if (error instanceof Error) {
+            res.status(500).send(error.message)
+            return;
+        }
+    }
+});
+
+// Update details for user book
+router.patch("/user/books/:userbook_id", (req, res) => {
+    // Check if user is logged in
+    if (!req.session.userId) {
+        res.status(401).send("Not logged in");
+        return;
+    }
+    const user_id = req.session.userId;
+
+    // New values
+    // Validate status
+    const status_values = ["want_to_read", "reading", "read", "abandoned"];
+    if(!req.body.status || !status_values.includes(req.body.status) ){
+        res.status(400).send("Invalid status")
+        return;
+    }
+    const updated_status = req.body.status;
+
+    // Validate rating
+    if(req.body.rating !== null && (typeof req.body.rating !== "number" || !Number.isInteger(req.body.rating * 2) || req.body.rating < 1 || req.body.rating > 5 )) {
+        res.status(400).send("Invalid rating");
+        return;
+    }
+    const updated_rating = req.body.rating === null
+        ? null
+        : req.body.rating * 2;
+
+    // Update values in user_book
+    const update_user_book = db.prepare(`
+        UPDATE user_book
+        SET status = ?, rating = ?
+        WHERE user_book.id = ?
+        AND user_book.user_id = ?
+    `);
+    
+    const result = update_user_book.run(updated_status, updated_rating, req.params.userbook_id, user_id);
+
+    // Error handling
+    if (result.changes === 1) {
+        res.status(204).send();
+    } else if (result.changes === 0) {
+        res.status(404).send("Book not found");
+    }
+});
+
+// Delete book from user library
+router.delete("/user/books/:userbook_id", (req, res) => {
+    // Check if user is logged in
+    if (!req.session.userId) {
+        res.status(401).send("Not logged in");
+        return;
+    }
+    const user_id = req.session.userId;
+
+    // Deletion
+    const statement = db.prepare(`
+        DELETE FROM user_book
+        WHERE user_book.id = ?
+        AND user_book.user_id = ?  
+    `)
+    
+    try {
+        // Error handling
+        const statement_changes = statement.run(req.params.userbook_id, user_id).changes
+
+        if(statement_changes === 0) {
+            throw new UserBookDeletionError();
+        }
+
+        res.status(204).send();
+
+    } catch(error) {
+        if (error instanceof UserBookDeletionError) {
+            res.status(404).send(error.message)
+            return;
+        }
+        if (error instanceof Error) {
+            res.status(500).send(error.message)
+            return;
+        }
+    }
+});
 
 export default router;

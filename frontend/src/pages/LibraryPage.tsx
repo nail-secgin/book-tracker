@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { UserBookCard} from '../components/BookCard';
 import {type UserBook} from "../types/Book.js";
 import { getUserBooks } from "../api/books_api.js"
+import { Link } from 'react-router';
 
 function LibraryPage() {
         // books uses interface 'Book'
@@ -39,6 +40,7 @@ function LibraryPage() {
                         {books.map(book => (
                             <div key={book.userbook_id}>
                                 <UserBookCard key={book.userbook_id} userbook={book}/>
+                                <Link to={`/user/books/${book.userbook_id}`}> Open details </Link>
                             </div>
                         ))}
                     </div>

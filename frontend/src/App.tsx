@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage.tsx';
 import RegisterPage from './pages/RegisterPage.tsx';
 import LibraryPage from './pages/LibraryPage.tsx'
 import { Link } from 'react-router';
+import LibraryDetailPage from './pages/LibraryDetailPage.tsx';
 
 function App() {
   
@@ -18,8 +19,7 @@ function App() {
         <Link to="/login"> Login </Link>
         <Link to="/books"> Book List </Link>
         <Link to="/books/add"> Add Book </Link>
-        <Link to="/library"> Your Library </Link>
-        
+        <Link to="/user/books"> Your Library </Link>
       </nav>
       
         <Routes>
@@ -28,7 +28,8 @@ function App() {
           <Route path="/books" element={<BooksPage/>}/>
           <Route path="/books/add" element={<AddBookPage/>}/>
           <Route path="/books/:book_id" element={<BookDetailPage/>}/>
-          <Route path="/library" element={<LibraryPage/>}/>
+          <Route path="/user/books" element={<LibraryPage/>}/>
+          <Route path="/user/books/:userbook_id" element={<LibraryDetailPage/>}/>
         </Routes>
       </BrowserRouter>
 
